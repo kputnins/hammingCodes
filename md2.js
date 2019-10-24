@@ -28,7 +28,7 @@ const generateHammingCodes = arrayOfBytes => {
   const arrayOfHammingCodes = [];
 
   arrayOfBytes.forEach(byte => {
-    let hammingCode = byte.split('');
+    let hammingCode = byte.split('').map(item => parseInt(item, 10));
 
     // Adds check bit placeholders in byte to create a hamming code
     for (let i = 1; i <= byte.length; i *= 2) {
@@ -44,11 +44,11 @@ const generateHammingCodes = arrayOfBytes => {
       hammingCode.forEach((bit, index) => {
         if (i === 1) {
           if ((index + 1) % 2 === 1 && index !== 0) {
-            parity += parseInt(bit);
+            parity += bit;
           }
         } else {
           if (~~((index + 1) / i) % 2 === 1 && index !== i - 1) {
-            parity += parseInt(bit);
+            parity += bit;
           }
         }
       });
@@ -67,8 +67,48 @@ const generateHammingCodes = arrayOfBytes => {
   return arrayOfHammingCodes;
 };
 
-const arrayOfBytesOne = convertStringToBytes(exampleOne);
-const arrayOfHammingCodesOne = generateHammingCodes(arrayOfBytesOne);
+// Flips a bit
+const flipBit = bit => {
+  return bit === 0 ? 1 : 0;
+};
 
-console.log('TCL: arrayOfBytesOne', arrayOfBytesOne);
-console.log('TCL: arrayOfBytesOne', arrayOfHammingCodesOne);
+// Simulates sending a bit stream of data bit by bit,
+// and indrotuces flipped bits based on specified errorRate
+const sendTransmision = (dataArray, errorRate) => {
+  const sentDataArray = [];
+
+  dataArray.forEach(byte => {
+    const sentByte = [];
+    byte.forEach(bit => {
+      let sentBit = null;
+      if (Math.random() < errorRate) {
+        sentBit = flipBit(bit);
+      } else {
+        sentBit = bit;
+      }
+
+      sentByte.push(sentBit);
+    });
+    sentDataArray.push(sentByte);
+  });
+
+  return sentDataArray;
+};
+
+const arrayOfBytes = convertStringToBytes(exampleOne);
+const arrayOfHammingCodes = generateHammingCodes(arrayOfBytes);
+
+const recievedArrayOfHammingCodes = sendTransmision(arrayOfHammingCodes, 0.05);
+
+console.log('\nTCL: arrayOfBytes\n', arrayOfBytes);
+console.log('\nTCL: arrayOfHammingCodes\n', arrayOfHammingCodes);
+console.log('\nTCL: recievedArrayOfHammingCodes\n', recievedArrayOfHammingCodes);
+
+arrayOfHammingCodes.forEach((byte, index_i) => {
+  byte.forEach((bit, index_j) => {
+    if (bit !== recievedArrayOfHammingCodes[index_i][index_j]) {
+      console.log(index_i, index_j);
+      // console.log(bit, recievedArrayOfHammingCodes[index_i][index_j]);
+    }
+  });
+});
