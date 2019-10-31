@@ -1,5 +1,3 @@
-const sentString = 'Andrew S. Tanenbaum';
-
 // Converts a string to an array af ASII bytes
 const convertStringToBytes = exampleWord => {
   const arrayOfASCIBytes = [];
@@ -133,8 +131,10 @@ const covertBytesToString = arrayOfBytes => {
   return string;
 };
 
+const sentString = 'Andrew S. Tanenbaum';
 const arrayOfBytes = convertStringToBytes(sentString);
 const arrayOfHammingCodes = convertToHammingCodes(arrayOfBytes);
+
 const recievedArrayOfHammingCodes = sendTransmision(arrayOfHammingCodes, 0.01);
 const recievedArrayOfBytes = convertFromHammingCodes(recievedArrayOfHammingCodes);
 const recievedString = covertBytesToString(recievedArrayOfBytes);
