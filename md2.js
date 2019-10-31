@@ -1,13 +1,12 @@
-const exampleOne = 'Andrew S. Tanenbaum';
-console.log('First string for transmision: ', exampleOne);
+const sentString = 'Andrew S. Tanenbaum';
 
 // Converts a string to an array af ASII bytes
-// Splits a word in to charecters and for each charecter
-// converts it to the ASCI number, converts it to a string in the base of 2 (binary)
-// and saves that and and the extra 0 as an entry in an array
 const convertStringToBytes = exampleWord => {
   const arrayOfASCIBytes = [];
 
+  // Splits a word in to charecters and for each charecter converts it to the ASCI code
+  // then converts it to a string in the base of 2 (binary)
+  // and saves it with the extra 0 as an entry in an array
   exampleWord.split('').forEach(char => {
     const ASCICode = char.charCodeAt();
     if (ASCICode < 1) arrayOfASCIBytes.push(`0000000${ASCICode.toString(2)}`);
@@ -24,13 +23,14 @@ const convertStringToBytes = exampleWord => {
 };
 
 // Generates Hamming codes from an array af ASCII bytes
-const generateHammingCodes = arrayOfBytes => {
+const convertToHammingCodes = arrayOfBytes => {
   const arrayOfHammingCodes = [];
 
   arrayOfBytes.forEach(byte => {
+    // Splits each string of bits in to an array of numbers
     let hammingCode = byte.split('').map(item => parseInt(item, 10));
 
-    // Adds check bit placeholders in byte to create a hamming code
+    // Adds check bit placeholders in the byte string to create a hamming code
     for (let i = 1; i <= byte.length; i *= 2) {
       hammingCode.splice(i - 1, 0, '?');
     }
@@ -39,8 +39,7 @@ const generateHammingCodes = arrayOfBytes => {
     for (let i = 1; i <= byte.length; i *= 2) {
       let parity = 0;
 
-      // Goes through each of the hammingCode byte to determine the parity of a check byte,
-      // by summing the necessary bites and chcking parity lates
+      // Goes through each of the hammingCode bits and summs the necessary bits for chcking parity
       hammingCode.forEach((bit, index) => {
         if (i === 1) {
           if ((index + 1) % 2 === 1 && index !== 0) {
@@ -95,20 +94,50 @@ const sendTransmision = (dataArray, errorRate) => {
   return sentDataArray;
 };
 
-const arrayOfBytes = convertStringToBytes(exampleOne);
-const arrayOfHammingCodes = generateHammingCodes(arrayOfBytes);
+// Generates an array af ASCII bytes from an array of Hamming codes
+const convertFromHammingCodes = arrayOfHammingCodes => {
+  const arrayOfBytes = [];
 
-const recievedArrayOfHammingCodes = sendTransmision(arrayOfHammingCodes, 0.05);
+  arrayOfHammingCodes.forEach(code => {
+    const byte = [...code];
+    parityBitPositions = [];
 
-console.log('\nTCL: arrayOfBytes\n', arrayOfBytes);
-console.log('\nTCL: arrayOfHammingCodes\n', arrayOfHammingCodes);
-console.log('\nTCL: recievedArrayOfHammingCodes\n', recievedArrayOfHammingCodes);
-
-arrayOfHammingCodes.forEach((byte, index_i) => {
-  byte.forEach((bit, index_j) => {
-    if (bit !== recievedArrayOfHammingCodes[index_i][index_j]) {
-      console.log(index_i, index_j);
-      // console.log(bit, recievedArrayOfHammingCodes[index_i][index_j]);
+    // Finds the positions of parity bits in Hamming code
+    for (let i = 1; i <= code.length; i *= 2) {
+      parityBitPositions.push(i);
     }
+
+    // Removes the extra parity bits
+    parityBitPositions.reverse().forEach(bit => {
+      byte.splice(bit - 1, 1);
+    });
+
+    arrayOfBytes.push(byte);
   });
-});
+
+  return arrayOfBytes;
+};
+
+// Converts an array of array of bits in to a string
+const covertBytesToString = arrayOfBytes => {
+  let string = '';
+
+  // Joins array of bits in to a single string
+  // Converts it to a number parsing it as a number in base 2
+  // Converts it to the coresponding ASCII code charecter
+  // Apends all charecters to a string
+  arrayOfBytes.forEach(byte => {
+    string += String.fromCharCode(parseInt(byte.join(''), 2));
+  });
+
+  return string;
+};
+
+const arrayOfBytes = convertStringToBytes(sentString);
+const arrayOfHammingCodes = convertToHammingCodes(arrayOfBytes);
+const recievedArrayOfHammingCodes = sendTransmision(arrayOfHammingCodes, 0.01);
+const recievedArrayOfBytes = convertFromHammingCodes(recievedArrayOfHammingCodes);
+const recievedString = covertBytesToString(recievedArrayOfBytes);
+
+console.log('\nSentString\n', sentString);
+console.log('\nRecievedString\n', recievedString);
