@@ -1,3 +1,6 @@
+let sentBits = 0;
+let flippedBits = 0;
+
 // Converts a string to an array af ASII bytes
 const convertStringToBytes = exampleWord => {
   const arrayOfASCIBytes = [];
@@ -26,7 +29,7 @@ const convertToHammingCodes = arrayOfBytes => {
 
   arrayOfBytes.forEach(byte => {
     // Splits each string of bits in to an array of numbers
-    let hammingCode = byte.split('').map(item => parseInt(item, 10));
+    const hammingCode = byte.split('').map(item => parseInt(item, 10));
 
     // Adds check bit placeholders in the byte string to create a hamming code
     for (let i = 1; i <= byte.length; i *= 2) {
@@ -43,10 +46,9 @@ const convertToHammingCodes = arrayOfBytes => {
           if ((index + 1) % 2 === 1 && index !== 0) {
             parity += bit;
           }
-        } else {
-          if (~~((index + 1) / i) % 2 === 1 && index !== i - 1) {
-            parity += bit;
-          }
+          // eslint-disable-next-line no-bitwise
+        } else if (~~((index + 1) / i) % 2 === 1 && index !== i - 1) {
+          parity += bit;
         }
       });
 
@@ -65,20 +67,23 @@ const convertToHammingCodes = arrayOfBytes => {
 };
 
 // Flips a bit
-const flipBit = bit => {
-  return bit === 0 ? 1 : 0;
-};
+const flipBit = bit => (bit === 0 ? 1 : 0);
 
 // Simulates sending a bit stream of data bit by bit,
 // and indrotuces flipped bits based on specified errorRate
 const sendTransmision = (dataArray, errorRate) => {
   const sentDataArray = [];
 
-  dataArray.forEach(byte => {
+  // Rotates the to be sent data array by 90 degrees
+  const rotatedDataArray = dataArray[0].map((col, i) => dataArray.map(row => row[i]));
+
+  rotatedDataArray.forEach(byte => {
     const sentByte = [];
     byte.forEach(bit => {
+      sentBits += 1;
       let sentBit = null;
       if (Math.random() < errorRate) {
+        flippedBits += 1;
         sentBit = flipBit(bit);
       } else {
         sentBit = bit;
@@ -89,7 +94,50 @@ const sendTransmision = (dataArray, errorRate) => {
     sentDataArray.push(sentByte);
   });
 
-  return sentDataArray;
+  // Rotates the sent data array back by 90 degrees
+  const rotatedSentDataArray = sentDataArray[0].map((col, i) => sentDataArray.map(row => row[i]));
+
+  return rotatedSentDataArray;
+};
+
+// Corrects errors in recieved Hamming codes by
+// checking the parity bits and determining the flipped bit
+const correctHammingCodes = hammingCodes => {
+  const correctedCodes = [...hammingCodes];
+
+  hammingCodes.forEach((code, codeIndex) => {
+    let parityBitCounter = 0;
+
+    // Cyle that calculates parity for each check bit
+    for (let i = 1; i <= code.length; i *= 2) {
+      let parity = 0;
+
+      // Goes through each of the hammingCode bits and summs the necessary bits for chcking parity
+      code.forEach((bit, bitIndex) => {
+        if (i === 1) {
+          if ((bitIndex + 1) % 2 === 1 && bitIndex !== 0) {
+            parity += bit;
+          }
+          // eslint-disable-next-line no-bitwise
+        } else if (~~((bitIndex + 1) / i) % 2 === 1 && bitIndex !== i - 1) {
+          parity += bit;
+        }
+      });
+
+      // Checks if the parity should be 0 or 1 based on if the checked bits have added up odd or even
+      parity = parity % 2 === 0 ? 0 : 1;
+
+      if (code[i - 1] !== parity) {
+        parityBitCounter += i;
+      }
+    }
+
+    if (parityBitCounter) {
+      correctedCodes[codeIndex][parityBitCounter - 1] = flipBit(hammingCodes[codeIndex][parityBitCounter - 1]);
+    }
+  });
+
+  return correctedCodes;
 };
 
 // Generates an array af ASCII bytes from an array of Hamming codes
@@ -98,7 +146,7 @@ const convertFromHammingCodes = arrayOfHammingCodes => {
 
   arrayOfHammingCodes.forEach(code => {
     const byte = [...code];
-    parityBitPositions = [];
+    const parityBitPositions = [];
 
     // Finds the positions of parity bits in Hamming code
     for (let i = 1; i <= code.length; i *= 2) {
@@ -131,13 +179,30 @@ const covertBytesToString = arrayOfBytes => {
   return string;
 };
 
-const sentString = 'Andrew S. Tanenbaum';
-const arrayOfBytes = convertStringToBytes(sentString);
-const arrayOfHammingCodes = convertToHammingCodes(arrayOfBytes);
+const stringsToSend = [
+  'Andrew S. Tanenbaum',
+  'Hamming codes can only',
+  'correct single errors',
+  'To correct burst errors,',
+  'the data should be transmitted one column at a time',
+];
 
-const recievedArrayOfHammingCodes = sendTransmision(arrayOfHammingCodes, 0.01);
-const recievedArrayOfBytes = convertFromHammingCodes(recievedArrayOfHammingCodes);
-const recievedString = covertBytesToString(recievedArrayOfBytes);
+stringsToSend.forEach(string => {
+  console.log('Sent:      ', string);
+  const arrayOfBytes = convertStringToBytes(string);
+  const arrayOfHammingCodes = convertToHammingCodes(arrayOfBytes);
+  const recievedArrayOfHammingCodes = sendTransmision(arrayOfHammingCodes, 0.01);
+  let recievedArrayOfBytes = convertFromHammingCodes(recievedArrayOfHammingCodes);
+  let recievedString = covertBytesToString(recievedArrayOfBytes);
+  console.log('Recieved:  ', recievedString);
 
-console.log('\nSentString\n', sentString);
-console.log('\nRecievedString\n', recievedString);
+  const correctedArrayOfHammingCodes = correctHammingCodes(recievedArrayOfHammingCodes);
+  recievedArrayOfBytes = convertFromHammingCodes(correctedArrayOfHammingCodes);
+  recievedString = covertBytesToString(recievedArrayOfBytes);
+  console.log('Corrected: ', recievedString);
+  console.log('Restored:  ', string === recievedString);
+  console.log();
+});
+
+console.log('Bits sent:    ', sentBits);
+console.log('Bits flipped: ', flippedBits);
