@@ -1,7 +1,7 @@
 let sentBits = 0;
 let flippedBits = 0;
 
-// Converts a string to an array af ASII bytes
+// Converts a string to an array of ASII byte arrays
 const convertStringToBytes = exampleWord => {
   const arrayOfASCIBytes = [];
 
@@ -23,7 +23,7 @@ const convertStringToBytes = exampleWord => {
   return arrayOfASCIBytes;
 };
 
-// Generates Hamming codes from an array af ASCII bytes
+// Converts an array af ASCII byte arrays to an array of Hamming code arrays
 const convertToHammingCodes = arrayOfBytes => {
   const arrayOfHammingCodes = [];
 
@@ -140,7 +140,7 @@ const correctHammingCodes = hammingCodes => {
   return correctedCodes;
 };
 
-// Generates an array af ASCII bytes from an array of Hamming codes
+// Generates an array of ASCII byte arrays from an array of Hamming code arrays
 const convertFromHammingCodes = arrayOfHammingCodes => {
   const arrayOfBytes = [];
 
@@ -164,7 +164,7 @@ const convertFromHammingCodes = arrayOfHammingCodes => {
   return arrayOfBytes;
 };
 
-// Converts an array of array of bits in to a string
+// Converts an array of bit arrays in to a string
 const covertBytesToString = arrayOfBytes => {
   let string = '';
 
@@ -179,7 +179,147 @@ const covertBytesToString = arrayOfBytes => {
   return string;
 };
 
-const stringsToSend = [
+// Returns XOR of 'a' and 'b'
+// Source https://www.geeksforgeeks.org/modulo-2-binary-division/
+const xor = (a, b) => {
+  // initialize result
+  const result = [];
+
+  // Traverse all bits, if bits are
+  // same, then XOR is 0, else 1
+  for (let i = 1; i < b.length; i += 1) {
+    if (a.charAt(i) === b.charAt(i)) {
+      result.push('0');
+    } else {
+      result.push('1');
+    }
+  }
+
+  // console.log('TCL: xor -> b', b);
+  return result.join('');
+};
+
+// Performs Modulo-2 division
+// Source https://www.geeksforgeeks.org/modulo-2-binary-division/
+const mod2div = (divident, divisor) => {
+  // Number of bits to be XORed at a time.
+  let pick = divisor.length;
+
+  // Slicing the divident to appropriate length for particular step
+  let tmp = divident.slice(0, pick);
+
+  while (pick < divident.length) {
+    if (tmp.charAt(0) === '1') {
+      // replace the divident by the result of XOR and pull 1 bit down
+      tmp = xor(divisor, tmp) + divident.charAt(pick);
+    } else {
+      // If leftmost bit is '0'
+      // If the leftmost bit of the dividend (or the part used in each step) is 0,
+      // the step cannot use the regular divisor; we need to use an all-0s divisor.
+      tmp = xor('0'.repeat(pick), tmp) + divident.charAt(pick);
+    }
+
+    // increment pick to move further
+    pick += 1;
+  }
+
+  // For the last n bits, we have to carry it out normally as increased value of pick will cause Index Out of Bounds.
+  if (tmp.charAt(0) === '1') {
+    tmp = xor(divisor, tmp);
+  } else {
+    tmp = xor('0'.repeat(pick), tmp);
+  }
+
+  const checkword = tmp;
+  return checkword;
+};
+
+// Converts an array of bit arrays in to an array of CRC frame arrays
+const convertToCRCFrame = (arrayOfBytes, generator) => {
+  const arrayOfFrames = [];
+  arrayOfBytes.forEach(byte => {
+    const appendedByte = byte + '0'.repeat(generator.length - 1);
+    const remainder = mod2div(appendedByte, generator);
+    arrayOfFrames.push((byte + remainder).split('').map(item => parseInt(item, 10)));
+  });
+  return arrayOfFrames;
+};
+
+const checkCRCErrors = (arrayOfFrames, generator) => {
+  let detectedErrors = 0;
+
+  arrayOfFrames.forEach(frame => {
+    // console.log(mod2div(frame.join(''), generator));
+    if (mod2div(frame.join(''), generator) !== '0'.repeat(generator.length - 1)) {
+      detectedErrors += 1;
+    }
+  });
+
+  return detectedErrors;
+};
+
+// Converts an array of CRC frame arrays to an array of bit arrays
+const convertFromCRCFrame = (arrayOfFrames, generator) => {
+  const arrayOfBytes = [];
+
+  arrayOfFrames.forEach(frame => {
+    arrayOfBytes.push(frame.slice(0, -(generator.length - 1)));
+  });
+
+  return arrayOfBytes;
+};
+
+const hammingCode = stringsToSend => {
+  console.log('Hamming Code Example');
+  stringsToSend.forEach(string => {
+    console.log('Sent:           ', string);
+    const arrayOfBytes = convertStringToBytes(string);
+    const arrayOfHammingCodes = convertToHammingCodes(arrayOfBytes);
+    const recievedArrayOfHammingCodes = sendTransmision(arrayOfHammingCodes, 0.01);
+    let recievedArrayOfBytes = convertFromHammingCodes(recievedArrayOfHammingCodes);
+    let recievedString = covertBytesToString(recievedArrayOfBytes);
+    console.log('Recieved:       ', recievedString);
+
+    const correctedArrayOfHammingCodes = correctHammingCodes(recievedArrayOfHammingCodes);
+    recievedArrayOfBytes = convertFromHammingCodes(correctedArrayOfHammingCodes);
+    recievedString = covertBytesToString(recievedArrayOfBytes);
+    console.log('Corrected:      ', recievedString);
+    console.log('Fully restored: ', string === recievedString);
+    console.log();
+  });
+
+  console.log('Bits sent:    ', sentBits);
+  console.log('Bits flipped: ', flippedBits);
+  console.log();
+  console.log();
+  sentBits = 0;
+  flippedBits = 0;
+};
+
+const cyclicRedundancyCheck = stringsToSend => {
+  console.log('Cyclic Redundancy Check Example');
+  const generator = '10011';
+
+  stringsToSend.forEach(string => {
+    console.log('Sent:            ', string);
+    const arrayOfBytes = convertStringToBytes(string);
+    const arrayOfCRCFrames = convertToCRCFrame(arrayOfBytes, generator);
+    const recievedarrayOfCRCFrames = sendTransmision(arrayOfCRCFrames, 0.004);
+    const errorInString = checkCRCErrors(recievedarrayOfCRCFrames, generator);
+    const recievedArrayOfBytes = convertFromCRCFrame(recievedarrayOfCRCFrames, generator);
+    const recievedString = covertBytesToString(recievedArrayOfBytes);
+    console.log('Recieved:        ', recievedString);
+    console.log('Detected errors: ', errorInString);
+    console.log();
+  });
+
+  console.log('Bits sent:    ', sentBits);
+  console.log('Bits flipped: ', flippedBits);
+  sentBits = 0;
+  flippedBits = 0;
+};
+
+const exampleStrings = [
   'Andrew S. Tanenbaum',
   'Hamming codes can only',
   'correct single errors',
@@ -187,22 +327,5 @@ const stringsToSend = [
   'the data should be transmitted one column at a time',
 ];
 
-stringsToSend.forEach(string => {
-  console.log('Sent:      ', string);
-  const arrayOfBytes = convertStringToBytes(string);
-  const arrayOfHammingCodes = convertToHammingCodes(arrayOfBytes);
-  const recievedArrayOfHammingCodes = sendTransmision(arrayOfHammingCodes, 0.01);
-  let recievedArrayOfBytes = convertFromHammingCodes(recievedArrayOfHammingCodes);
-  let recievedString = covertBytesToString(recievedArrayOfBytes);
-  console.log('Recieved:  ', recievedString);
-
-  const correctedArrayOfHammingCodes = correctHammingCodes(recievedArrayOfHammingCodes);
-  recievedArrayOfBytes = convertFromHammingCodes(correctedArrayOfHammingCodes);
-  recievedString = covertBytesToString(recievedArrayOfBytes);
-  console.log('Corrected: ', recievedString);
-  console.log('Restored:  ', string === recievedString);
-  console.log();
-});
-
-console.log('Bits sent:    ', sentBits);
-console.log('Bits flipped: ', flippedBits);
+hammingCode(exampleStrings);
+cyclicRedundancyCheck(exampleStrings);
